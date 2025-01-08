@@ -17,54 +17,50 @@ class Conexion:
         self.password = password
         self.mqttc = MQTTClient(self.CLIENT_NAME, self.BROKER_ADDR, keepalive=60)
         self.wifi_connected = False
+    #
 
     def conectar_wifi(self):
-        """
-        Conecta el dispositivo a la red Wi-Fi.
-        """
-        wlan = network.WLAN(network.STA_IF)
-        wlan.active(True)
-        wlan.connect(self.ssid, self.password)
-
+        wlan = network.WLAN(network.STA_IF) # Creamos la instancia de la interfaz de red
+        wlan.active(True) # Activa o desactiva la interfaz de red
+        wlan.connect(self.ssid, self.password) # Dada una ssid y una contraseña accede a dicha red
         print("Conectando al Wi-Fi...")
         for _ in range(20):  # Esperar 20 intentos (~10 segundos)
             if wlan.isconnected():
-                self.wifi_connected = True
+                self.wifi_connected = True  #Variable auxiliar
                 print("Conexión Wi-Fi establecida.")
-                print(f"Dirección IP: {wlan.ifconfig()[0]}")
+                print(f"Dirección IP: {wlan.ifconfig()[0]}") # wlan.ifconfig(): Obtiene o
+                                                             # establezce parámetros de interfaz de red
+                                                             # a nivel de IP: dirección IP, máscara de subred,
+                                                             # puerta de enlace y servidor DNS.
                 return
             sleep(0.5)
         
         print("Error: No se pudo conectar al Wi-Fi.")
         self.wifi_connected = False
+    #
 
     def verificarConexion(self):
-        """
-        Verifica y establece la conexión con el broker MQTT.
-        """
+        # Verifica y establece la conexión con el broker MQTT.
         try:
-            if not self.wifi_connected:
+            if not self.wifi_connected: #En caso de perderse la conexion
                 print("Wi-Fi no conectado. Conectando...")
-                self.conectar_wifi()
+                self.conectar_wifi()  #Si no hay conexion wifi volvemos a intentarlo
 
-            self.mqttc.connect()
+            self.mqttc.connect() #Realizamos la conexion al broker
             print("Conexión exitosa con el broker MQTT.")
             return True
         except Exception as e:
             print(f"Error al conectar con el broker MQTT: {e}")
             return False
+    #
 
     def publicar(self, topic, mensaje):
-        """
-        Publica un mensaje al topic configurado.
-        :param topic: El topic donde se publicará el mensaje.
-        :param mensaje: Mensaje a publicar.
-        """
         try:
             self.mqttc.publish(topic, mensaje)
             print(f"Mensaje publicado en {topic}: {mensaje}")
         except Exception as e:
             print(f"Error al publicar el mensaje: {e}")
+    #
 
     def suscribirse(self, topic, relevador):
         """
@@ -73,14 +69,15 @@ class Conexion:
         :param relevador: Objeto de la clase relevador.
         """
         try:
-            # Usar functools.partial para pasar el relevador al callback
-            self.mqttc.set_callback(self.mensaje_recibido)
+            self.mqttc.set_callback(self.controlador_msg)
             self.mqttc.subscribe(topic)
             print(f"Suscrito al topic: {topic}")
         except Exception as e:
             print(f"Error al suscribirse al topic {topic}: {e}")
+            
+    #
 
-    def mensaje_recibido(self, topic, msg, relevador):
+    def controlador_msg(self, topic, msg, relevador):
         """
         Callback ejecutado al recibir un mensaje en el topic suscrito.
         :param topic: Nombre del topic.
@@ -101,6 +98,8 @@ class Conexion:
                 print(f"Comando desconocido: {mensaje}")
         except Exception as e:
             print(f"Error procesando el mensaje: {e}")
+            
+    #
 
     def desconectar(self):
         """
@@ -111,6 +110,9 @@ class Conexion:
             print("Cliente MQTT desconectado.")
         except Exception as e:
             print(f"Error al desconectar el cliente MQTT: {e}")
+    #
+            
+    
 
 class temperatureSensor:
     def __init__(self, scl_pin=22, sda_pin=21, address=LM75_ADDR):
@@ -133,7 +135,7 @@ async def publicar_temperatura(conexion, sensor):
         conexion.publicar("esp32/temperatura", f"TONY ENVIO TEMPERATURA -> {temperatura:.2f}")
         await asyncio.sleep(2)
 
-async def escuchar_mensajes(conexion):
+async def get_mensajesBroker(conexion):
     """
     Tarea asíncrona para escuchar mensajes en el topic suscrito.
     """
@@ -178,7 +180,7 @@ async def main():
     # Ejecuta las tareas asíncronas
     await asyncio.gather(
         publicar_temperatura(conexion, sensor_temp),
-        escuchar_mensajes(conexion)
+        get_mensajesBroker(conexion)
     )
 
 # Ejecutar el programa principal
